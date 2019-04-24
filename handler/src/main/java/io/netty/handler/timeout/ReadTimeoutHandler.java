@@ -60,6 +60,7 @@ import java.util.concurrent.TimeUnit;
  * @see IdleStateHandler
  */
 public class ReadTimeoutHandler extends IdleStateHandler {
+    //是否关闭
     private boolean closed;
 
     /**

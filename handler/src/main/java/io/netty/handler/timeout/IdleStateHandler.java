@@ -96,39 +96,98 @@ import java.util.concurrent.TimeUnit;
  * @see WriteTimeoutHandler
  */
 public class IdleStateHandler extends ChannelDuplexHandler {
+    //最小的超时时间 单位为纳秒
     private static final long MIN_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(1);
 
+    //写任务监测器
     // Not create a new ChannelFutureListener per write operation to reduce GC pressure.
     private final ChannelFutureListener writeListener = new ChannelFutureListener() {
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
+            // 记录最后写时间
             lastWriteTime = ticksInNanos();
+            // 重置 firstWriterIdleEvent 和 firstAllIdleEvent 为 true
             firstWriterIdleEvent = firstAllIdleEvent = true;
         }
     };
 
-    private final boolean observeOutput;
+    /***
+     * 配置的读空闲时间
+     */
     private final long readerIdleTimeNanos;
+    /***
+     * 配置的写空闲时间
+     */
     private final long writerIdleTimeNanos;
+    /***
+     * 配置的读或写空闲时间
+     */
     private final long allIdleTimeNanos;
 
+    /***
+     * 读空闲检测任务
+     */
     private ScheduledFuture<?> readerIdleTimeout;
+    /***
+     * 最后读时间
+     */
     private long lastReadTime;
+    /***
+     * 是否首次读空闲
+     */
     private boolean firstReaderIdleEvent = true;
 
+    /***
+     * 写空闲检测任务
+     */
     private ScheduledFuture<?> writerIdleTimeout;
+    /***
+     * 最后写时间
+     */
     private long lastWriteTime;
+    /***
+     * 是否首次写空闲
+     */
     private boolean firstWriterIdleEvent = true;
 
+    /***
+     * 读写空闲检测任务
+     */
     private ScheduledFuture<?> allIdleTimeout;
+    /***
+     * 是否首次读或写空闲
+     */
     private boolean firstAllIdleEvent = true;
 
+    /***
+     * 0 未初始化
+     * 1 已经初始化
+     * 2 已经销毁
+     */
     private byte state; // 0 - none, 1 - initialized, 2 - destroyed
+
+    /***
+     * 是否正在读
+     */
     private boolean reading;
 
+    /**
+     * 最后检测到 {@link ChannelOutboundBuffer} 发生变化的时间
+     */
     private long lastChangeCheckTimeStamp;
+    /**
+     * 第一条准备 flash 到对端的消息( {@link ChannelOutboundBuffer#current()} )的 HashCode
+     */
     private int lastMessageHashCode;
+    /**
+     * 总共等待 flush 到对端的内存大小( {@link ChannelOutboundBuffer#totalPendingWriteBytes()} )
+     */
     private long lastPendingWriteBytes;
+
+    /***
+     * 是否观察 {@link ChannelOutboundBuffer} 写入队列
+     */
+    private final boolean observeOutput;
 
     /**
      * Creates a new instance firing {@link IdleStateEvent}s.
@@ -280,7 +339,9 @@ public class IdleStateHandler extends ChannelDuplexHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (readerIdleTimeNanos > 0 || allIdleTimeNanos > 0) {
+            //标记正在读取
             reading = true;
+            //重置firstReaderIdleEvent和firstAllIdleEvent为true
             firstReaderIdleEvent = firstAllIdleEvent = true;
         }
         ctx.fireChannelRead(msg);
@@ -289,7 +350,9 @@ public class IdleStateHandler extends ChannelDuplexHandler {
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         if ((readerIdleTimeNanos > 0 || allIdleTimeNanos > 0) && reading) {
+            //最后读取时间
             lastReadTime = ticksInNanos();
+            //不在读取中
             reading = false;
         }
         ctx.fireChannelReadComplete();
@@ -299,8 +362,10 @@ public class IdleStateHandler extends ChannelDuplexHandler {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         // Allow writing with void promise if handler is only configured for read timeout events.
         if (writerIdleTimeNanos > 0 || allIdleTimeNanos > 0) {
+            //写入 并添加写入监听器 改监听器会在数据在flush时候回调，修改lastWriteTime 为 #ticksInNanos()
             ctx.write(msg, promise.unvoid()).addListener(writeListener);
         } else {
+            //写入 不添加监听器
             ctx.write(msg, promise);
         }
     }
@@ -313,10 +378,11 @@ public class IdleStateHandler extends ChannelDuplexHandler {
         case 2:
             return;
         }
-
+         //标记已经初始化
         state = 1;
+        //初始化ChannelOutboundBuffer相关的属性
         initOutputChanged(ctx);
-
+         //初始化相应的定时任务
         lastReadTime = lastWriteTime = ticksInNanos();
         if (readerIdleTimeNanos > 0) {
             readerIdleTimeout = schedule(ctx, new ReaderIdleTimeoutTask(ctx),
@@ -347,8 +413,9 @@ public class IdleStateHandler extends ChannelDuplexHandler {
     }
 
     private void destroy() {
+        //标记为已经销毁
         state = 2;
-
+        //销毁相应的定时任务
         if (readerIdleTimeout != null) {
             readerIdleTimeout.cancel(false);
             readerIdleTimeout = null;
@@ -397,7 +464,9 @@ public class IdleStateHandler extends ChannelDuplexHandler {
             ChannelOutboundBuffer buf = unsafe.outboundBuffer();
 
             if (buf != null) {
+                // 记录第一条准备 flash 到对端的消息的 HashCode
                 lastMessageHashCode = System.identityHashCode(buf.current());
+                // 记录总共等待 flush 到对端的内存大小
                 lastPendingWriteBytes = buf.totalPendingWriteBytes();
             }
         }
@@ -411,6 +480,7 @@ public class IdleStateHandler extends ChannelDuplexHandler {
      * https://github.com/netty/netty/issues/6150
      */
     private boolean hasOutputChanged(ChannelHandlerContext ctx, boolean first) {
+        //开启观察 ChannelOutboundBuffer队列
         if (observeOutput) {
 
             // We can take this shortcut if the ChannelPromises that got passed into write()
@@ -418,6 +488,7 @@ public class IdleStateHandler extends ChannelDuplexHandler {
             // that there's change happening on byte level. If the user doesn't observe channel
             // writability events then they'll eventually OOME and there's clearly a different
             // problem and idleness is least of their concerns.
+            //lastChangeCheckTimeStamp和lastWriteTime不一样 说明写操作过了 则更新此值
             if (lastChangeCheckTimeStamp != lastWriteTime) {
                 lastChangeCheckTimeStamp = lastWriteTime;
 
@@ -477,20 +548,24 @@ public class IdleStateHandler extends ChannelDuplexHandler {
 
         @Override
         protected void run(ChannelHandlerContext ctx) {
+            //读空闲时间
             long nextDelay = readerIdleTimeNanos;
             if (!reading) {
+                //小于等于0 说明检测到读空闲
                 nextDelay -= ticksInNanos() - lastReadTime;
             }
 
             if (nextDelay <= 0) {
                 // Reader is idle - set a new timeout and notify the callback.
                 readerIdleTimeout = schedule(ctx, this, readerIdleTimeNanos, TimeUnit.NANOSECONDS);
-
+                //获取当前是否首次检测到读空闲
                 boolean first = firstReaderIdleEvent;
                 firstReaderIdleEvent = false;
 
                 try {
+                    //创建读空闲事件
                     IdleStateEvent event = newIdleStateEvent(IdleState.READER_IDLE, first);
+                    //通知通道空闲事件
                     channelIdle(ctx, event);
                 } catch (Throwable t) {
                     ctx.fireExceptionCaught(t);
@@ -513,6 +588,7 @@ public class IdleStateHandler extends ChannelDuplexHandler {
 
             long lastWriteTime = IdleStateHandler.this.lastWriteTime;
             long nextDelay = writerIdleTimeNanos - (ticksInNanos() - lastWriteTime);
+            //检测到读空闲
             if (nextDelay <= 0) {
                 // Writer is idle - set a new timeout and notify the callback.
                 writerIdleTimeout = schedule(ctx, this, writerIdleTimeNanos, TimeUnit.NANOSECONDS);

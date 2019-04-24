@@ -48,13 +48,32 @@ import java.util.Map;
  * transports such as datagram (UDP).</p>
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
-
+    /***
+     * EventLoopGroup 属性
+     */
     volatile EventLoopGroup group;
+    /***
+     * 创建channel对象的
+     */
     @SuppressWarnings("deprecation")
     private volatile ChannelFactory<? extends C> channelFactory;
+
+    /***
+     * 本地地址
+     */
     private volatile SocketAddress localAddress;
+    /***
+     * 可选项集合
+     */
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
+    /***
+     * 属性集合
+     */
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
+
+    /***
+     * 处理器
+     */
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -314,10 +333,37 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /***
+     * 三个步骤
+     * 1 创建channel  A 完成channel的创建  最终就说nio的selectableChannel
+     *               B 完成channel和DefaultChannelPipeline两者的相互绑定
+     * 2 初始化channel
+     * 3 channel和EventLoopGroup线程绑定
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            /***
+             *创建channel
+             * 1 调用NioSocketChannel的无参数构造器 初始化了SocketChannelConfig属性
+             * 2 调用父类AbstractNioByteChannel   A 初始化了SelectableChannel属性及java nio中的channel千万理解
+             *                                  B readInterestOp属性
+             *                                  C 设置非阻塞模式
+             * 3 调用父类AbstractNioChannel  无初始化属性
+             * 4 调用父类AbstractChannel    初始化了
+             *                                  A parent属性为null
+             *                                  B unsafe 属性值为 AbstractNioByteChannel.NioByteUnsafe
+             *                                  C 初始化了pipeline属性为DefaultChannelPipeline这个对象创建时候有创建这个对象的以下几个属性
+             *                                      A channel属性 就说上面创建的channel
+             *                                      B tail属性  是一个channelHandlerContext也是一个 channelHandler  inbound=true
+             *                                      C head属性   是一个channelHandlerContext也是一个 channelHandler 其实此时tail和head组成一个双向链表 outbound=true
+             */
             channel = channelFactory.newChannel();
+            /***
+             *1 代码主要是把bootstrap中的添加进去的handler封装成一个个的handlerContext添加到channel的pipeline属性中
+             *2 channel设置可选项属性
+             */
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -329,7 +375,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        /***
+         * channel的注册过程
+         *config().group()返回的是NioEventLoopGroup这个对象 并把channel注册到里面去
+         * 1 调用MultithreadEventLoopGroup.register（）方法  这个方法中的next()方法中返回一个NioEventLoop对象
+         * 2 调用SingleThreadEventLoop.register()方法
+         * 3 调用promise.channel().unsafe().register(this, promise);方法进行绑定
+         * 4 最终进入到unsafe的register方法  参数为EventLoop和ChannelPromise（Channel）属性
+         * 5 AbstractChannel.this.eventLoop = eventLoop; 关键的一步骤 channel和eventLoop的绑定
+         * 6 在AbstractChannel和注册到eventLoop的Select中 这个才是真正的底层的nio
+         */
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

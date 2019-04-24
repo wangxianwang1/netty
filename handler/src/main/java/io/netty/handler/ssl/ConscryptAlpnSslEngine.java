@@ -32,10 +32,10 @@ import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
 
 import io.netty.util.internal.SystemPropertyUtil;
-import org.conscrypt.AllocatedBuffer;
-import org.conscrypt.BufferAllocator;
-import org.conscrypt.Conscrypt;
-import org.conscrypt.HandshakeListener;
+//import org.conscrypt.AllocatedBuffer;
+//import org.conscrypt.BufferAllocator;
+//import org.conscrypt.Conscrypt;
+//import org.conscrypt.HandshakeListener;
 
 /**
  * A {@link JdkSslEngine} that uses the Conscrypt provider or SSL with ALPN.
@@ -67,11 +67,11 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
         // Alternatively, if an allocator is provided, no internal buffer will be created and direct buffers will be
         // retrieved from the allocator on-demand.
         if (USE_BUFFER_ALLOCATOR) {
-            Conscrypt.setBufferAllocator(engine, new BufferAllocatorAdapter(alloc));
+            //Conscrypt.setBufferAllocator(engine, new BufferAllocatorAdapter(alloc));
         }
 
         // Set the list of supported ALPN protocols on the engine.
-        Conscrypt.setApplicationProtocols(engine, protocols.toArray(new String[0]));
+        //Conscrypt.setApplicationProtocols(engine, protocols.toArray(new String[0]));
     }
 
     /**
@@ -84,13 +84,13 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
      */
     final int calculateOutNetBufSize(int plaintextBytes, int numBuffers) {
         // Assuming a max of one frame per component in a composite buffer.
-        long maxOverhead = (long) Conscrypt.maxSealOverhead(getWrappedEngine()) * numBuffers;
+       // long maxOverhead = (long) Conscrypt.maxSealOverhead(getWrappedEngine()) * numBuffers;
         // TODO(nmittler): update this to use MAX_ENCRYPTED_PACKET_LENGTH instead of Integer.MAX_VALUE
-        return (int) min(Integer.MAX_VALUE, plaintextBytes + maxOverhead);
+        return (int) min(Integer.MAX_VALUE, plaintextBytes );
     }
 
     final SSLEngineResult unwrap(ByteBuffer[] srcs, ByteBuffer[] dests) throws SSLException {
-        return Conscrypt.unwrap(getWrappedEngine(), srcs, dests);
+        return null;
     }
 
     private static final class ClientEngine extends ConscryptAlpnSslEngine {
@@ -100,12 +100,6 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
                 JdkApplicationProtocolNegotiator applicationNegotiator) {
             super(engine, alloc, applicationNegotiator.protocols());
             // Register for completion of the handshake.
-            Conscrypt.setHandshakeListener(engine, new HandshakeListener() {
-                @Override
-                public void onHandshakeFinished() throws SSLException {
-                    selectProtocol();
-                }
-            });
 
             protocolListener = checkNotNull(applicationNegotiator
                             .protocolListenerFactory().newListener(this, applicationNegotiator.protocols()),
@@ -113,7 +107,7 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
         }
 
         private void selectProtocol() throws SSLException {
-            String protocol = Conscrypt.getApplicationProtocol(getWrappedEngine());
+            String protocol = null;//Conscrypt.getApplicationProtocol(getWrappedEngine());
             try {
                 protocolListener.selected(protocol);
             } catch (Throwable e) {
@@ -130,12 +124,12 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
             super(engine, alloc, applicationNegotiator.protocols());
 
             // Register for completion of the handshake.
-            Conscrypt.setHandshakeListener(engine, new HandshakeListener() {
-                @Override
-                public void onHandshakeFinished() throws SSLException {
-                    selectProtocol();
-                }
-            });
+//            Conscrypt.setHandshakeListener(engine, new HandshakeListener() {
+//                @Override
+//                public void onHandshakeFinished() throws SSLException {
+//                    selectProtocol();
+//                }
+//            });
 
             protocolSelector = checkNotNull(applicationNegotiator.protocolSelectorFactory()
                             .newSelector(this,
@@ -145,7 +139,7 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
 
         private void selectProtocol() throws SSLException {
             try {
-                String protocol = Conscrypt.getApplicationProtocol(getWrappedEngine());
+                String protocol = null; //Conscrypt.getApplicationProtocol(getWrappedEngine());
                 protocolSelector.select(protocol != null ? Collections.singletonList(protocol)
                         : Collections.<String>emptyList());
             } catch (Throwable e) {
@@ -154,43 +148,43 @@ abstract class ConscryptAlpnSslEngine extends JdkSslEngine {
         }
     }
 
-    private static final class BufferAllocatorAdapter extends BufferAllocator {
-        private final ByteBufAllocator alloc;
+//    private static final class BufferAllocatorAdapter extends BufferAllocator {
+//        private final ByteBufAllocator alloc;
+//
+//        BufferAllocatorAdapter(ByteBufAllocator alloc) {
+//            this.alloc = alloc;
+//        }
+//
+//        @Override
+//        public AllocatedBuffer allocateDirectBuffer(int capacity) {
+//            return new BufferAdapter(alloc.directBuffer(capacity));
+//        }
+//    }
 
-        BufferAllocatorAdapter(ByteBufAllocator alloc) {
-            this.alloc = alloc;
-        }
-
-        @Override
-        public AllocatedBuffer allocateDirectBuffer(int capacity) {
-            return new BufferAdapter(alloc.directBuffer(capacity));
-        }
-    }
-
-    private static final class BufferAdapter extends AllocatedBuffer {
-        private final ByteBuf nettyBuffer;
-        private final ByteBuffer buffer;
-
-        BufferAdapter(ByteBuf nettyBuffer) {
-            this.nettyBuffer = nettyBuffer;
-            buffer = nettyBuffer.nioBuffer(0, nettyBuffer.capacity());
-        }
-
-        @Override
-        public ByteBuffer nioBuffer() {
-            return buffer;
-        }
-
-        @Override
-        public AllocatedBuffer retain() {
-            nettyBuffer.retain();
-            return this;
-        }
-
-        @Override
-        public AllocatedBuffer release() {
-            nettyBuffer.release();
-            return this;
-        }
-    }
+//    private static final class BufferAdapter extends AllocatedBuffer {
+//        private final ByteBuf nettyBuffer;
+//        private final ByteBuffer buffer;
+//
+//        BufferAdapter(ByteBuf nettyBuffer) {
+//            this.nettyBuffer = nettyBuffer;
+//            buffer = nettyBuffer.nioBuffer(0, nettyBuffer.capacity());
+//        }
+//
+//        @Override
+//        public ByteBuffer nioBuffer() {
+//            return buffer;
+//        }
+//
+//        @Override
+//        public AllocatedBuffer retain() {
+//            nettyBuffer.retain();
+//            return this;
+//        }
+//
+//        @Override
+//        public AllocatedBuffer release() {
+//            nettyBuffer.release();
+//            return this;
+//        }
+//    }
 }

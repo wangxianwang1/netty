@@ -237,6 +237,12 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             return javaChannel();
         }
 
+        /***
+         * 连接操作 最终调用到channel的连接操作
+         * @param remoteAddress
+         * @param localAddress
+         * @param promise
+         */
         @Override
         public final void connect(
                 final SocketAddress remoteAddress, final SocketAddress localAddress, final ChannelPromise promise) {

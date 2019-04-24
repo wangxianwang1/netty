@@ -50,13 +50,27 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(Bootstrap.class);
 
+    /***
+     * 默认地址解析器
+     */
     private static final AddressResolverGroup<?> DEFAULT_RESOLVER = DefaultAddressResolverGroup.INSTANCE;
 
+
+    /***
+     * 启动类配置对象
+     */
     private final BootstrapConfig config = new BootstrapConfig(this);
 
+    /***
+     * 地址解析器
+     */
     @SuppressWarnings("unchecked")
     private volatile AddressResolverGroup<SocketAddress> resolver =
             (AddressResolverGroup<SocketAddress>) DEFAULT_RESOLVER;
+
+    /***
+     * 地址
+     */
     private volatile SocketAddress remoteAddress;
 
     public Bootstrap() { }

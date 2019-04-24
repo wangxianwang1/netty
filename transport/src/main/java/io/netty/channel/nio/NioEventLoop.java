@@ -122,6 +122,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      * the select method and the select method will block for that time unless
      * waken up.
      */
+    //这个属性的意思是是否唤醒正在阻塞的select操作
     private final AtomicBoolean wakenUp = new AtomicBoolean();
 
     private final SelectStrategy selectStrategy;
@@ -161,6 +162,11 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /***
+     * 创建Selector对象，并设置两个属性
+     * 这两个属性在select时候，如果io事件发生，就会往里面两个属性塞相应的selectionKey
+     *
+     */
     private SelectorTuple openSelector() {
         final Selector unwrappedSelector;
         try {
@@ -342,6 +348,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     /**
      * Replaces the current {@link Selector} of this event loop with newly created {@link Selector}s to work
      * around the infamous epoll 100% CPU bug.
+     *
      */
     public void rebuildSelector() {
         if (!inEventLoop()) {
@@ -356,6 +363,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         rebuildSelector0();
     }
 
+
+    /***
+     * 1 创建一个新的Selector出来
+     * 2 遍历所有有效的key
+     * 3 取消该key在老的selector上的注册
+     * 4 将该key注册到新的selector上
+     * 5 从新绑定key和channel的关系
+     * 6 废弃原来的selector
+     */
     private void rebuildSelector0() {
         final Selector oldSelector = selector;
         final SelectorTuple newSelectorTuple;
@@ -418,6 +434,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /***
+     * 做了以下几件事情
+     * 1 轮询IO事件
+     * 2 处理轮询到的事件
+     * 3 执行任务队列中的任务 包括定时任务队列和任务队列
+     */
     @Override
     protected void run() {
         for (;;) {
@@ -429,7 +451,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
                     case SelectStrategy.BUSY_WAIT:
                         // fall-through to SELECT since the busy-wait is not supported with NIO
-
+                     //轮训该reactor线程对用的selector上的所有的channel的IO事件
                     case SelectStrategy.SELECT:
                         select(wakenUp.getAndSet(false));
 
@@ -477,6 +499,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
                 cancelledKeys = 0;
                 needsToSelectAgain = false;
+                //处理轮训到的channle事件及处理队列中的任务
                 final int ioRatio = this.ioRatio;
                 if (ioRatio == 100) {
                     try {
@@ -524,6 +547,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /***
+     *  1 处理优化的key
+     *  2 处理正常的key
+     *  两个区别其实很明显  一个是遍历数组  一个是遍历set集合
+     *  数组遍历的效率肯定要高于set  这个就说netty的遍历方式
+     */
     private void processSelectedKeys() {
         if (selectedKeys != null) {
             processSelectedKeysOptimized();
@@ -599,23 +628,31 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /***
+     * 优化的key的处理
+     * 1 取出io事件对应的channel此时遍历的是数组，而之前遍历的set  肯定效率有所提高
+     * 2 处理该channel
+     * 3 判断是否该再来次轮询
+     */
     private void processSelectedKeysOptimized() {
         for (int i = 0; i < selectedKeys.size; ++i) {
+            // 1
             final SelectionKey k = selectedKeys.keys[i];
             // null out entry in the array to allow to have it GC'ed once the Channel close
             // See https://github.com/netty/netty/issues/2363
             selectedKeys.keys[i] = null;
 
             final Object a = k.attachment();
-
+             // 2
             if (a instanceof AbstractNioChannel) {
                 processSelectedKey(k, (AbstractNioChannel) a);
             } else {
+                //目前netty源码里面没有用到这个
                 @SuppressWarnings("unchecked")
                 NioTask<SelectableChannel> task = (NioTask<SelectableChannel>) a;
                 processSelectedKey(k, task);
             }
-
+            // 3
             if (needsToSelectAgain) {
                 // null out entries in the array to allow to have it GC'ed once the Channel close
                 // See https://github.com/netty/netty/issues/2363
@@ -760,9 +797,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         Selector selector = this.selector;
         try {
             int selectCnt = 0;
-            long currentTimeNanos = System.nanoTime();
+            long currentTimeNanos = System.nanoTime();  //执行select操作之前看下开始事件
             long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
-
+            /***
+             *  //定时任务的截止事件要快到了  所以我要退出了去执行了
+             *  // 1 首先定时任务队列和任务队列是两个队列
+             *  // 2 定时任务队列中的延时时间是按队列的从小到大的顺序进行排列的
+             * // 3 所以拿到定时任务的最开始的一个队列的时候就是最早执行的那个队列
+             * // 4 在这个队列任务中最早执行那个定时任务开始前0.5ms要马上结束循环了因为定时任务要执行了哈
+             */
             for (;;) {
                 long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
                 if (timeoutMillis <= 0) {
@@ -777,15 +820,31 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 // Selector#wakeup. So we need to check task queue again before executing select operation.
                 // If we don't, the task might be pended until select operation was timed out.
                 // It might be pended until idle timeout if IdleStateHandler existed in pipeline.
+                /***
+                 * //轮训的过程中如果有新的定时任务添加进来  结束本次缓存 需要去执行新任务了  很容易理解
+                 */
                 if (hasTasks() && wakenUp.compareAndSet(false, true)) {
                     selector.selectNow();
                     selectCnt = 1;
                     break;
                 }
 
+                /***
+                 * 阻塞式select查询
+                 * 但是这里面有个问题  如果这个第一个延时定时任务要执行的时间很长的话
+                 * 那个这个select阻塞的也会很长是吧
+                 * 所以这个selecy阻塞是不是要找一个时机点去把它给中断掉
+                 * 这就是外部调用
+                 * 外部线程调用execute方法添加任务时候会执行
+                 * 调用wakeup方法唤醒selector阻塞
+                 * 完美解决了刚刚那个问题
+                 */
                 int selectedKeys = selector.select(timeoutMillis);
-                selectCnt ++;
+                 selectCnt++;
 
+                /***
+                 *  轮训到io事件     oldWakenUp参数为true  用户主动唤醒   有新添加的任务     第一个定时任务即将执行
+                 */
                 if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks() || hasScheduledTasks()) {
                     // - Selected something,
                     // - waken up by user, or
@@ -793,6 +852,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     // - a scheduled task is ready for processing
                     break;
                 }
+
+                /***
+                 * 如果当前线程中断了
+                 */
                 if (Thread.interrupted()) {
                     // Thread was interrupted so reset selected keys and break so we not run into a busy loop.
                     // As this is most likely a bug in the handler of the user or it's client library we will
@@ -807,9 +870,20 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     selectCnt = 1;
                     break;
                 }
-
+                /***
+                 * 解决了jdk的bug
+                 *  1 select之前的时间为currentTimeNanos
+                 *  2 select结束之后看下结束时间time
+                 *  3 select执行的预估算时间timeoutMillis
+                 *  4 比较这三个时间 看下真正执行select时间和估算的时间timeoutMillis的大小
+                 *  5 if里面如果执行的时间和预估的时间差不多，说明是一个有效的select操作，selectCnt的值加一
+                 *  5 else if里面 如果执行时间不在这个预估时间范围内，这个时候说明可能会导致jdk的bug的，
+                 *  因此此时查询循环的次数和阈值次数（默认512）比较，大于阈值次数的时候说明bug产生了不好意思，
+                 *  我就需要重新构建Selector 哈哈 完美
+                 *
+                 */
                 long time = System.nanoTime();
-                if (time - TimeUnit.MILLISECONDS.toNanos(timeoutMillis) >= currentTimeNanos) {
+                if (time - TimeUnit.MILLISECONDS.toNanos(timeoutMillis) >= currentTimeNanos) {   //看下该select真正的执行时间是否在就说
                     // timeoutMillis elapsed without anything selected.
                     selectCnt = 1;
                 } else if (SELECTOR_AUTO_REBUILD_THRESHOLD > 0 &&

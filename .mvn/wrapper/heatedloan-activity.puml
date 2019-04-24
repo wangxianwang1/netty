@@ -1,0 +1,105 @@
+@startuml
+
+Promotion "1" --> "many" PromotionActivity
+PromotionActivity "1" --> "many" ActivityJoinRecord
+PromotionActivity "1" --> "many" ShareRecord
+
+ActivityJoinRecord "1" --> "many" ActivityKeywordReceive
+ActivityKeywordReceive "1" --> "==" ActivityLinkPhone
+
+/'营销活动主表'/
+class Promotion<<营销策略>>{
+     -id                   主键id
+     -type                 策略类型(("金牛座活动", 1), ("双子座", 2)) 具体见枚举
+     -name                 策略名称
+     -description          策略备注
+     -status               状态(正常\关闭)
+     -createdAt             创建时间
+     -updatedAt             修改时间
+     -createdBy             创建人
+     -updatedBy             修改人
+
+}
+
+
+/'营销活动主表'/
+class PromotionActivity<<营销活动表>>{
+     -id                   主键id∂
+     -code                 活动唯一标示值
+     -promotionId          营销策略Id
+     -name                 活动名称 eg：5月金牛座活动
+     -description          活动备注 eg：引新活动，分享金牛座宝宝翻倍
+     -startTime            活动上线时间 4／22
+     -endTime              活动截止时间 5／22
+     -openTime             活动期间的每天的开场时间 13点／16点
+     -status               状态(正常\关闭)
+     -createdAt             创建时间
+     -updatedAt             修改时间
+     -createdBy             创建人
+     -updatedBy             修改人
+
+}
+
+
+
+/'活动参与记录表'/
+/'金牛座活动中的获奖名单'/
+/'集关键字活动中的获奖名单'/
+class ActivityJoinRecord<<活动参与记录表>>{
+     -id                   主键id
+     -activity_code        活动唯一编码
+     -join_user_id         参与人的用户ID
+     -join_user_realname   参与人的真实名称
+     -join_user_phone      参与人的手机号码
+     -join_voucher         凭证 eg:订单编号 or 活动页面 根据不同的活动玩法来决定凭证，不限于订单编号；同时代表是否内定的意思（10000）
+     -award_grade          奖项等级（1，2，3，4）
+     -join_status          活动参与状态：1 参与成功 0 未参与成功 具体见枚举
+     -status               数据库此条记录的状态（1 生效 0删除）具体见枚举
+     -createdAt             参与时间／集成关键字的时间
+
+}
+
+
+/'活动用户关键字领取表-当用户全部领取后，将信息存入ActivityJoinRecord表，保存成功的ID回填join_record_id'/
+class ActivityKeywordReceive<<活动关键字领取表>>{
+     -id                   主键id
+     -activity_code        活动唯一编码
+     -user_id              用户ID
+     -keyword              关键字
+     -keywordType          关键字类型
+     -sequence             得到关键字的顺序
+     -receive_status       领取状态（待领取，已领取）
+     -receive_voucher      "在"字领取，存入可领取改字的订单号；等等
+     -status               数据库此条记录的状态（1 生效 0删除）具体见枚举
+     -createdAt             参与时间
+
+}
+
+/'活动公众号输入手机号'/
+class ActivityLinkPhone<<活动公众号输入手机号>>{
+     -id                   主键id
+     -activity_code        活动唯一编码
+     -link              链接
+     -phone              手机号
+     -status
+     -createdAt             参与时间
+
+}
+
+
+/'分享记录表'/
+class ShareRecord <<分享记录表>>{
+    -id
+    -activity_code          活动唯一编码
+    -share_user_id          分享人／邀请人的用户ID
+    -share_user_phone       分享人／邀请人的用户手机号码
+    -be_share_user_id        被分享人／邀请人的用户ID
+    -be_share_user_phone     被分享人／邀请人的用户手机号码
+    -status               数据库此条记录的状态（1 生效 0删除）具体见枚举
+    -createdAt              创建时间
+}
+
+
+
+
+@enduml

@@ -345,21 +345,31 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      *
      * @return {@code true} if and only if at least one task was run
      */
+    /***
+     * react线程执行定时任务操作
+     * 1 从scheduledTaskQueue把定时任务已经到的定时任务转移到taskQueue队列中
+     * 2 执行taskQueue中的所有的队列
+     * 3 计算本次任务循环的截止时间
+     * 4 收尾
+     * @return
+     */
     protected boolean runAllTasks() {
         assert inEventLoop();
         boolean fetchedAll;
         boolean ranAtLeastOne = false;
 
         do {
+            //1 从scheduledTaskQueue把定时任务已经到的定时任务转移到taskQueue队列中 fetchedAll返回是否有需要执行的定时任务
             fetchedAll = fetchFromScheduledTaskQueue();
+            //2 真正执行taskQueue执行任务
             if (runAllTasksFrom(taskQueue)) {
                 ranAtLeastOne = true;
             }
         } while (!fetchedAll); // keep on processing until we fetched all scheduled tasks.
-
         if (ranAtLeastOne) {
             lastExecutionTime = ScheduledFutureTask.nanoTime();
         }
+        //4 收尾
         afterRunningAllTasks();
         return ranAtLeastOne;
     }
@@ -389,14 +399,25 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.  This method stops running
      * the tasks in the task queue and returns if it ran longer than {@code timeoutNanos}.
      */
+    /***
+     * react线程执行定时任务操作
+     * 1 从scheduledTaskQueue把定时任务已经到的定时任务转移到taskQueue队列中
+     * 2 执行taskQueue中的所有的队列
+     * 3 计算本次任务循环的截止时间
+     * 4 收尾
+     * @return
+     */
     protected boolean runAllTasks(long timeoutNanos) {
+        // 1
         fetchFromScheduledTaskQueue();
+        // 2 获取需要执行的定时任务
         Runnable task = pollTask();
         if (task == null) {
+            //收尾
             afterRunningAllTasks();
             return false;
         }
-
+        //3 计算本次截止的执行时间
         final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;
         long runTasks = 0;
         long lastExecutionTime;
@@ -413,7 +434,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                     break;
                 }
             }
-
+            //收尾
             task = pollTask();
             if (task == null) {
                 lastExecutionTime = ScheduledFutureTask.nanoTime();
@@ -746,6 +767,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return isTerminated();
     }
 
+    /***
+     * 其实里面干了三件事情
+     * 1 添加任务供后面的死循环查找使用
+     * 2 创建了一个Thread线程，并调用Thread的start方法启动线程
+     * 2 启动线程执行run方法这里面做了两个事情
+     *    第一对NioEventLoop的Thread线程进行赋值
+     *    第二对启动死循环
+     * @param task
+     */
     @Override
     public void execute(Runnable task) {
         if (task == null) {

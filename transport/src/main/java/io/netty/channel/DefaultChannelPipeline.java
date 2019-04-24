@@ -47,9 +47,21 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     static final InternalLogger logger = InternalLoggerFactory.getInstance(DefaultChannelPipeline.class);
 
+    /***
+     * head的名称
+     */
     private static final String HEAD_NAME = generateName0(HeadContext.class);
+
+
+    /***
+     * 尾巴的名称
+     */
     private static final String TAIL_NAME = generateName0(TailContext.class);
 
+
+    /***
+     *名字({@link AbstractChannelHandlerContext#name})缓存 ，基于 ThreadLocal ，用于生成在线程中唯一的名字。
+     */
     private static final FastThreadLocal<Map<Class<?>, String>> nameCaches =
             new FastThreadLocal<Map<Class<?>, String>>() {
         @Override
@@ -66,10 +78,29 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     private final Channel channel;
     private final ChannelFuture succeededFuture;
+
+    /**
+     * 不进行通知的 Promise 对象
+     *
+     * 用于一些方法执行，需要传入 Promise 类型的方法参数，但是不需要进行通知，就传入该值
+     *
+     * @see io.netty.channel.AbstractChannel.AbstractUnsafe#safeSetSuccess(ChannelPromise)
+     */
     private final VoidChannelPromise voidPromise;
     private final boolean touch = ResourceLeakDetector.isEnabled();
 
+    /**
+     * 子执行器集合。
+     *
+     * 默认情况下，ChannelHandler 使用 Channel 所在的 EventLoop 作为执行器。
+     * 但是如果有需要，也可以自定义执行器。详细解析，见 {@link #childExecutor(EventExecutorGroup)} 。
+     * 实际情况下，基本不会用到。和基友【闪电侠】沟通过。
+     */
     private Map<EventExecutorGroup, EventExecutor> childExecutors;
+
+    /**
+     * TODO 1008 DefaultChannelPipeline 字段用途
+     */
     private volatile MessageSizeEstimator.Handle estimatorHandle;
     private boolean firstRegistration = true;
 
@@ -80,6 +111,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      * We only keep the head because it is expected that the list is used infrequently and its size is small.
      * Thus full iterations to do insertions is assumed to be a good compromised to saving memory and tail management
      * complexity.
+     */
+    /***
+     * 准备添加 ChannelHandler 的回调
      */
     private PendingHandlerCallback pendingHandlerCallbackHead;
 
@@ -210,6 +244,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             // ChannelHandler.handlerAdded(...) once the channel is registered.
             if (!registered) {
                 newCtx.setAddPending();
+                // 添加 PendingHandlerCallback 回调
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -224,10 +259,24 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+
+    /***
+     *   head             tail
+     *   1      2   3     4    before
+     *
+     *
+     *   head                tail
+     *   1     2    3    new   4     after
+     *
+     * @param newCtx
+     */
     private void addLast0(AbstractChannelHandlerContext newCtx) {
+        // 获得 tail 节点的前一个节点
         AbstractChannelHandlerContext prev = tail.prev;
+        // 新节点，指head向 prev 和 tail 节点
         newCtx.prev = prev;
         newCtx.next = tail;
+        // 在 prev 和 tail ，指向新节点
         prev.next = newCtx;
         tail.prev = newCtx;
     }

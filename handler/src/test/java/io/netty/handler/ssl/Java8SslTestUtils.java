@@ -16,7 +16,7 @@
 
 package io.netty.handler.ssl;
 
-import org.conscrypt.OpenSSLProvider;
+//import org.conscrypt.OpenSSLProvider;
 
 import javax.net.ssl.SNIMatcher;
 import javax.net.ssl.SNIServerName;
@@ -41,7 +41,7 @@ final class Java8SslTestUtils {
     }
 
     static Provider conscryptProvider() {
-        return new OpenSSLProvider();
+        return null;
     }
 
     /**

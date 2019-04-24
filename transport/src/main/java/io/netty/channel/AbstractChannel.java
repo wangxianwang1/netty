@@ -460,6 +460,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+        /***
+         * 因为注册是netty专有的 他是把channel注册到eventLoop中
+         * 所以它不涉及底层nio的操作
+         * @param eventLoop
+         * @param promise
+         */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             if (eventLoop == null) {
@@ -537,6 +543,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        /***
+         * 绑定的时候最终还是总底层的channel绑定的操作，
+         * 因此需要最终调用是底层的channel
+         * @param localAddress
+         * @param promise
+         */
         @Override
         public final void bind(final SocketAddress localAddress, final ChannelPromise promise) {
             assertEventLoop();
@@ -579,6 +591,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             safeSetSuccess(promise);
         }
 
+        /***
+         * 最终调用的channel的disConnect方法
+         * @param promise
+         */
         @Override
         public final void disconnect(final ChannelPromise promise) {
             assertEventLoop();
@@ -840,6 +856,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             });
         }
 
+        /***
+         * 开启一个周期行的读线程
+         */
         @Override
         public final void beginRead() {
             assertEventLoop();

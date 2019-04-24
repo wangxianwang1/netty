@@ -69,6 +69,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     /**
      * Create a new instance
+     * newSocket(DEFAULT_SELECTOR_PROVIDER)创建出来的对象为
+     * ServerSocketChannel对象  就说nio的对象了
      */
     public NioServerSocketChannel() {
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
@@ -138,6 +140,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         javaChannel().close();
     }
 
+    /***
+     * 服务端接受到客户端的客户端的连接请求
+     * @param buf
+     * @return
+     * @throws Exception
+     */
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         SocketChannel ch = SocketUtils.accept(javaChannel());

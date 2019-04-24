@@ -39,7 +39,14 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
+    /***
+     * 下一个节点
+     */
     volatile AbstractChannelHandlerContext next;
+
+    /***
+     * 上一个节点
+     */
     volatile AbstractChannelHandlerContext prev;
 
     private static final AtomicIntegerFieldUpdater<AbstractChannelHandlerContext> HANDLER_STATE_UPDATER =
@@ -47,37 +54,67 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     /**
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} is about to be called.
+     * 添加准备中
      */
     private static final int ADD_PENDING = 1;
     /**
+     * 已添加
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} was called.
      */
     private static final int ADD_COMPLETE = 2;
     /**
+     * 已移除
      * {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
      */
     private static final int REMOVE_COMPLETE = 3;
     /**
+     * 初始化
      * Neither {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}
      * nor {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
      */
     private static final int INIT = 0;
-
+    /***
+     * 是否为inbound
+     */
     private final boolean inbound;
+
+    /***
+     * 是否为outbound
+     */
     private final boolean outbound;
+
+    /***
+     * 所属的pipeline
+     */
     private final DefaultChannelPipeline pipeline;
+
+    /***
+     * 名字
+     */
     private final String name;
+
+    /***
+     * 是否有序
+     */
     private final boolean ordered;
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the
     // child executor.
     final EventExecutor executor;
+
+
+    /**
+     * 成功的 Promise 对象
+     */
     private ChannelFuture succeededFuture;
 
     // Lazily instantiated tasks used to trigger events to a handler with different executor.
     // There is no need to make this volatile as at worse it will just create a few more instances then needed.
     private Tasks invokeTasks;
 
+    /***
+     * 处理器状态
+     */
     private volatile int handlerState = INIT;
 
     AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor, String name,
@@ -462,11 +499,14 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
+
+        // 判断是否为合法的 Promise 对象
         if (isNotValidPromise(promise, false)) {
             // cancelled
             return promise;
         }
 
+        // 获得下一个 Outbound 节点
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -483,13 +523,14 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     }
 
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
-        if (invokeHandler()) {
+        if (invokeHandler()) {   // 判断是否符合的 ChannelHandler
             try {
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
+            // 跳过，传播 Outbound 事件给下一个节点
             bind(localAddress, promise);
         }
     }
