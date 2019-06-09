@@ -58,6 +58,14 @@ public final class EchoClient {
             b.group(group)
              .channel(NioSocketChannel.class)
              .option(ChannelOption.TCP_NODELAY, true)
+
+            /***
+             * 客户端连接的时候自己创建了一个channel 这个handler就是给这个channel用的
+             * 在Bootstrap的init方法时候会把这个handler设置到channel中去，由于这个handler是一个
+             * 内部类，因此在这个handler中最终有把EchoClientHandler加到channerl中去，
+             * 因此这个channerl最终有4个handler
+             * 分别是 head ChannelInitializer EchoClientHandler tail
+             */
              .handler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {

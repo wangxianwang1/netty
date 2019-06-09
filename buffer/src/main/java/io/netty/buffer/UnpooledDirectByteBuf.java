@@ -62,6 +62,10 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         this.alloc = alloc;
+        /***
+         * 创建Direct ByteBuffer对象
+         * 设置数据ByteBuffer对象
+         */
         setByteBuffer(allocateDirect(initialCapacity));
     }
 

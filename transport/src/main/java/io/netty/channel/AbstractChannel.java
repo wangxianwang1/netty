@@ -880,6 +880,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+
+        /***
+         * 正常通信数据的写这样的一个过程
+         * @param msg
+         * @param promise
+         */
         @Override
         public final void write(Object msg, ChannelPromise promise) {
             assertEventLoop();
@@ -912,6 +918,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             outboundBuffer.addMessage(msg, size, promise);
         }
 
+        /***
+         * flush这个过程这个入口
+         */
         @Override
         public final void flush() {
             assertEventLoop();
@@ -920,11 +929,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             if (outboundBuffer == null) {
                 return;
             }
-
+            /***
+             * 调整内存队列的指针
+             */
             outboundBuffer.addFlush();
+            /***
+             * 真正的执行写入对端
+             */
             flush0();
         }
 
+        /***
+         * 执行真正的写入到对端从ChannelOutboundBuffer写开始
+         *
+         */
         @SuppressWarnings("deprecation")
         protected void flush0() {
             if (inFlush0) {
@@ -955,6 +973,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                //最终调用的是NioSockerChannel里面的实现方法
                 doWrite(outboundBuffer);
             } catch (Throwable t) {
                 if (t instanceof IOException && config().isAutoClose()) {
@@ -1156,6 +1175,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     protected abstract void doBeginRead() throws Exception;
 
     /**
+     * 最终调用的是NioSockerChannel里面的实现方法
      * Flush the content of the given buffer to the remote peer.
      */
     protected abstract void doWrite(ChannelOutboundBuffer in) throws Exception;

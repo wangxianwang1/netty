@@ -164,7 +164,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /***
      * 创建Selector对象，并设置两个属性
-     * 这两个属性在select时候，如果io事件发生，就会往里面两个属性塞相应的selectionKey
+     * 这两个属性在select时候，如果有io事件发生，就会往里面两个属性塞相应的selectionKey
      *
      */
     private SelectorTuple openSelector() {
@@ -632,7 +632,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      * 优化的key的处理
      * 1 取出io事件对应的channel此时遍历的是数组，而之前遍历的set  肯定效率有所提高
      * 2 处理该channel
-     * 3 判断是否该再来次轮询
+     * 3 判断是否该再来次轮询 每隔默认256channel的移除下，清理下selectedKeys 防止内存溢出
      */
     private void processSelectedKeysOptimized() {
         for (int i = 0; i < selectedKeys.size; ++i) {

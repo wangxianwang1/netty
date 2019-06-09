@@ -128,6 +128,10 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             }
         }
 
+        /****
+         * 正常通信数据的读这样的一个过程
+         *  doReadBytes(byteBuf)将socketChannel数据写入缓存。
+         */
         @Override
         public final void read() {
             final ChannelConfig config = config();

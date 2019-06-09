@@ -297,6 +297,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+    /***
+     * 两个点特别说明
+     * 1 initAndRegister最终也是要绑定到AbstractUnsafe中register方法中做了两件事情
+     *  A AbstractChannel.this.eventLoop = eventLoop;
+     *  B  selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
+     * 2 doBind0最终也会调用到AbstractUnsafe的bind方法
+     * AbstractUnsafe在AbstractChannel的内部类
+     * @param localAddress
+     * @return
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
@@ -337,7 +347,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * 三个步骤
      * 1 创建channel  A 完成channel的创建  最终就说nio的selectableChannel
      *               B 完成channel和DefaultChannelPipeline两者的相互绑定
-     * 2 初始化channel
+     * 2 初始化channel初始化channel
      * 3 channel和EventLoopGroup线程绑定
      * @return
      */
@@ -346,8 +356,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         try {
             /***
              *创建channel
-             * 1 调用NioSocketChannel的无参数构造器 初始化了SocketChannelConfig属性
-             * 2 调用父类AbstractNioByteChannel   A 初始化了SelectableChannel属性及java nio中的channel千万理解
+             * 1 调用NioServerSocketChannel或NioSocketChannel的无参数构造器 初始化了SocketChannelConfig属性
+             * 2 调用父类AbstractNioMessageChannel或AbstractNioByteChannel
+             *                                  A 初始化了SelectableChannel属性及java nio中的channel千万理解
              *                                  B readInterestOp属性
              *                                  C 设置非阻塞模式
              * 3 调用父类AbstractNioChannel  无初始化属性

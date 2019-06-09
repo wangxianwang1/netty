@@ -26,8 +26,19 @@ import java.nio.ByteBuffer;
  */
 public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator implements ByteBufAllocatorMetricProvider {
 
+    /***
+     * Metric对象
+     */
     private final UnpooledByteBufAllocatorMetric metric = new UnpooledByteBufAllocatorMetric();
+
+    /***
+     * 是否禁用内存检测功能
+     */
     private final boolean disableLeakDetector;
+
+    /***
+     * 不使用 io.netty.util.internal.Cleaner 释放Direct ByteBuf
+     */
     private final boolean noCleaner;
 
     /**
@@ -61,7 +72,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
 
     /**
      * Create a new instance
-     *
+     *构造器
      * @param preferDirect {@code true} if {@link #buffer(int)} should try to allocate a direct buffer rather than
      *                     a heap buffer
      * @param disableLeakDetector {@code true} if the leak-detection should be disabled completely for this
@@ -77,6 +88,12 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
                 && PlatformDependent.hasDirectBufferNoCleanerConstructor();
     }
 
+    /***
+     * 创建一个HeapBuffe
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
         return PlatformDependent.hasUnsafe() ?
@@ -84,6 +101,12 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
                 new InstrumentedUnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
     }
 
+    /***
+     * 创建一个DirectBuffer
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
         final ByteBuf buf;
@@ -247,7 +270,13 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     }
 
     private static final class UnpooledByteBufAllocatorMetric implements ByteBufAllocatorMetric {
+        /***
+         * Direct ByteBuf占用内存大小
+         */
         final LongCounter directCounter = PlatformDependent.newLongCounter();
+        /***
+         * Direct ByteBuf占用内存大小
+         */
         final LongCounter heapCounter = PlatformDependent.newLongCounter();
 
         @Override

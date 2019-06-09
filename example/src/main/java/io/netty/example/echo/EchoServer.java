@@ -57,7 +57,17 @@ public final class EchoServer {
             b.group(bossGroup, workerGroup)
              .channel(NioServerSocketChannel.class)
              .option(ChannelOption.SO_BACKLOG, 100)
+              //表示服务启动过程中   需要经过哪些流程
+                    /***
+                     * 服务端的启动时候会创建channel，这个handler最终会注入到channelr中
+                     * 注入的地点在ServerBootstrap的init方法的 p.addLast(new ChannelInitializer<Channel>()中注入
+                     * 在这个里面首先是 head  ChannelInitializer tail,在ChannelInitializer这个里面又会去添加LoggingHandler
+                     * 因此此时是 head ChannelInitializer LoggingHandler tail
+                     * 最后在ChannelInitializer中还会添加ServerBootstrapAcceptor处理器 同时移除了ChannelInitializer处理器
+                     * 因此此时是 head LoggingHandler ServerBootstrapAcceptor tail
+                      */
              .handler(new LoggingHandler(LogLevel.INFO))
+              //表示新的连接进来之后  怎么处理
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {

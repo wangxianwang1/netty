@@ -31,16 +31,29 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
     private static final Recycler<PooledHeapByteBuf> RECYCLER = new Recycler<PooledHeapByteBuf>() {
         @Override
         protected PooledHeapByteBuf newObject(Handle<PooledHeapByteBuf> handle) {
+            /***
+             * 真正创建PooledHeapByteBuf
+             */
             return new PooledHeapByteBuf(handle, 0);
         }
     };
 
+    /***
+     * 基于ByteBuffer的可重用的ByteBuf的实现类
+     * @param maxCapacity
+     * @return
+     */
     static PooledHeapByteBuf newInstance(int maxCapacity) {
         PooledHeapByteBuf buf = RECYCLER.get();
         buf.reuse(maxCapacity);
         return buf;
     }
 
+    /***
+     * 构造方法
+     * @param recyclerHandle
+     * @param maxCapacity
+     */
     PooledHeapByteBuf(Recycler.Handle<? extends PooledHeapByteBuf> recyclerHandle, int maxCapacity) {
         super(recyclerHandle, maxCapacity);
     }

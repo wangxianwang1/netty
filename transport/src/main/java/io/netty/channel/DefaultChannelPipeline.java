@@ -255,6 +255,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
         }
+        //回调用户方法
         callHandlerAdded0(newCtx);
         return this;
     }

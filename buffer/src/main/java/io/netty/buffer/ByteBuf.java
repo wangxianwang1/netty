@@ -249,6 +249,7 @@ import java.nio.charset.UnsupportedCharsetException;
 public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
 
     /**
+     * 容量
      * Returns the number of bytes (octets) this buffer can contain.
      */
     public abstract int capacity();
@@ -264,12 +265,14 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
     public abstract ByteBuf capacity(int newCapacity);
 
     /**
+     * 最大容量
      * Returns the maximum allowed capacity of this buffer. This value provides an upper
      * bound on {@link #capacity()}.
      */
     public abstract int maxCapacity();
 
     /**
+     * 获取分配器
      * Returns the {@link ByteBufAllocator} which created this buffer.
      */
     public abstract ByteBufAllocator alloc();
@@ -277,7 +280,7 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
     /**
      * Returns the <a href="http://en.wikipedia.org/wiki/Endianness">endianness</a>
      * of this buffer.
-     *
+     *字节序  即大小端 推荐阅读 http://www.ruanyifeng.com/blog/2016/11/byte-order.html
      * @deprecated use the Little Endian accessors, e.g. {@code getShortLE}, {@code getIntLE}
      * instead of creating a buffer with swapped {@code endianness}.
      */
@@ -300,18 +303,20 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
 
     /**
      * Return the underlying buffer instance if this buffer is a wrapper of another buffer.
-     *
+     *获取被包装（warp）的ByteBuf对象
      * @return {@code null} if this buffer is not a wrapper
      */
     public abstract ByteBuf unwrap();
 
     /**
+     * 是否NIO Direct Buffer
      * Returns {@code true} if and only if this buffer is backed by an
      * NIO direct buffer.
      */
     public abstract boolean isDirect();
 
     /**
+     * 是否只读
      * Returns {@code true} if and only if this buffer is read-only.
      */
     public abstract boolean isReadOnly();
@@ -322,6 +327,7 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
     public abstract ByteBuf asReadOnly();
 
     /**
+     * 读位置
      * Returns the {@code readerIndex} of this buffer.
      */
     public abstract int readerIndex();
@@ -337,6 +343,7 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
     public abstract ByteBuf readerIndex(int readerIndex);
 
     /**
+     * 写位置
      * Returns the {@code writerIndex} of this buffer.
      */
     public abstract int writerIndex();
@@ -401,22 +408,26 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {
      *         if the specified {@code writerIndex} is less than the specified
      *         {@code readerIndex} or if the specified {@code writerIndex} is
      *         greater than {@code this.capacity}
+     * 设置读写位置
      */
     public abstract ByteBuf setIndex(int readerIndex, int writerIndex);
 
     /**
+     * 剩余可读字节数
      * Returns the number of readable bytes which is equal to
      * {@code (this.writerIndex - this.readerIndex)}.
      */
     public abstract int readableBytes();
 
     /**
+     * 剩余可写字节数
      * Returns the number of writable bytes which is equal to
      * {@code (this.capacity - this.writerIndex)}.
      */
     public abstract int writableBytes();
 
     /**
+     * 最大可写字节数
      * Returns the maximum possible number of writable bytes, which is equal to
      * {@code (this.maxCapacity - this.writerIndex)}.
      */

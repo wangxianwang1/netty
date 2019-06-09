@@ -57,11 +57,18 @@ public final class ChannelOutboundBuffer {
     //  - 2 int fields
     //  - 1 boolean field
     //  - padding
+    /***
+     * ChannelOutboundBuffer 对象本身占用的内存大小
+     */
     static final int CHANNEL_OUTBOUND_BUFFER_ENTRY_OVERHEAD =
             SystemPropertyUtil.getInt("io.netty.transport.outboundBufferEntrySizeOverhead", 96);
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ChannelOutboundBuffer.class);
 
+    /***
+     * 线程对应的ByteBuffer数组缓存
+     * 每次调用会重新生成
+     */
     private static final FastThreadLocal<ByteBuffer[]> NIO_BUFFERS = new FastThreadLocal<ByteBuffer[]>() {
         @Override
         protected ByteBuffer[] initialValue() throws Exception {
@@ -69,36 +76,77 @@ public final class ChannelOutboundBuffer {
         }
     };
 
+    /***
+     * channel对象
+     */
     private final Channel channel;
 
     // Entry(flushedEntry) --> ... Entry(unflushedEntry) --> ... Entry(tailEntry)
     //
     // The Entry that is the first in the linked-list structure that was flushed
+    /***
+     * 第一个开始flushed Entry
+     */
     private Entry flushedEntry;
     // The Entry which is the first unflushed in the linked-list structure
+    /***
+     * 第一个开始未flushed Entry
+     */
     private Entry unflushedEntry;
     // The Entry which represents the tail of the buffer
+    /***
+     * 未Entry
+     */
     private Entry tailEntry;
     // The number of flushed entries that are not written yet
+
+    /***
+     * 已经flushed 但未写入对端的Entry数量
+     */
     private int flushed;
 
+    /***
+     * nio Buffers数组大小
+     */
     private int nioBufferCount;
+
+    /***
+     * nio buffuer数组中每个buffer字节数组数
+     */
     private long nioBufferSize;
 
+    /***
+     * 正在通知flush 失败中
+     */
     private boolean inFail;
 
+    /***
+     * 原子更新对象中的totalPendingSize属性Entry#pendingSize合计来计算
+     */
     private static final AtomicLongFieldUpdater<ChannelOutboundBuffer> TOTAL_PENDING_SIZE_UPDATER =
             AtomicLongFieldUpdater.newUpdater(ChannelOutboundBuffer.class, "totalPendingSize");
 
+    /***
+     * 总共等待flush到对端的内存大小 通过
+     */
     @SuppressWarnings("UnusedDeclaration")
     private volatile long totalPendingSize;
 
+    /***
+     * 原子更新对象中的unwritable属性
+     */
     private static final AtomicIntegerFieldUpdater<ChannelOutboundBuffer> UNWRITABLE_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(ChannelOutboundBuffer.class, "unwritable");
 
+    /***
+     * 是否不可写
+     */
     @SuppressWarnings("UnusedDeclaration")
     private volatile int unwritable;
 
+    /***
+     * 触发channel可写的改变任务
+     */
     private volatile Runnable fireChannelWritabilityChangedTask;
 
     ChannelOutboundBuffer(AbstractChannel channel) {
@@ -209,6 +257,7 @@ public final class ChannelOutboundBuffer {
     }
 
     /**
+     * 获取当前要写入对端的消息数据
      * Return the current message to write or {@code null} if nothing was flushed before and so is ready to be written.
      */
     public Object current() {
@@ -371,6 +420,10 @@ public final class ChannelOutboundBuffer {
         return nioBuffers(Integer.MAX_VALUE, Integer.MAX_VALUE);
     }
 
+    /***
+     * 获取当前要写入有对端的NIO ByteBuffer数组 并且获取数组大小不得超过maxCount
+     * 字节数不能超过maxBytes
+     */
     /**
      * Returns an array of direct NIO buffers if the currently pending messages are made of {@link ByteBuf} only.
      * {@link #nioBufferCount()} and {@link #nioBufferSize()} will return the number of NIO buffers in the returned
@@ -390,16 +443,25 @@ public final class ChannelOutboundBuffer {
         assert maxBytes > 0;
         long nioBufferSize = 0;
         int nioBufferCount = 0;
+        /***
+         * 获得当前线程的NIO ByteBuffer数组缓存
+         */
         final InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
         ByteBuffer[] nioBuffers = NIO_BUFFERS.get(threadLocalMap);
+        //从flushEntry节点 开始向下遍历
         Entry entry = flushedEntry;
         while (isFlushedEntry(entry) && entry.msg instanceof ByteBuf) {
+            //如果Entry已经取消了  忽略
             if (!entry.cancelled) {
+                //获取netty的ByteBuf对象
                 ByteBuf buf = (ByteBuf) entry.msg;
+                //读指针开始位置
                 final int readerIndex = buf.readerIndex();
+                //可读的字节数
                 final int readableBytes = buf.writerIndex() - readerIndex;
 
                 if (readableBytes > 0) {
+                    //没有刻度的数据或者条件不满足  直接退出
                     if (maxBytes - readableBytes < nioBufferSize && nioBufferCount != 0) {
                         // If the nioBufferSize + readableBytes will overflow maxBytes, and there is at least one entry
                         // we stop populate the ByteBuffer array. This is done for 2 reasons:
@@ -414,17 +476,32 @@ public final class ChannelOutboundBuffer {
                         // - http://linux.die.net/man/2/writev
                         break;
                     }
+                    /***
+                     * 增加nioBufferSize大小
+                     */
                     nioBufferSize += readableBytes;
+                    /***
+                     * 获取Entry节点中Nio ByteBuffer的数量
+                     */
                     int count = entry.count;
                     if (count == -1) {
                         //noinspection ConstantValueVariableUse
                         entry.count = count = buf.nioBufferCount();
                     }
+                    /***
+                     * 需要的字节数组的个数
+                     */
                     int neededSpace = min(maxCount, nioBufferCount + count);
+                    /***
+                     * 需要的字节数组的个数大于最大值  扩容
+                     */
                     if (neededSpace > nioBuffers.length) {
                         nioBuffers = expandNioBufferArray(nioBuffers, neededSpace, nioBufferCount);
                         NIO_BUFFERS.set(threadLocalMap, nioBuffers);
                     }
+                    /***
+                     * 初始化Entry节点的buf/或者bufs属性
+                     */
                     if (count == 1) {
                         ByteBuffer nioBuf = entry.buf;
                         if (nioBuf == null) {
@@ -786,6 +863,10 @@ public final class ChannelOutboundBuffer {
     }
 
     static final class Entry {
+
+        /***
+         * Recycler对象  用于重用Entry对象
+         */
         private static final Recycler<Entry> RECYCLER = new Recycler<Entry>() {
             @Override
             protected Entry newObject(Handle<Entry> handle) {
@@ -793,16 +874,56 @@ public final class ChannelOutboundBuffer {
             }
         };
 
+        /***
+         * Recycler处理器
+         */
         private final Handle<Entry> handle;
+
+        /***
+         * 下一个Entry
+         */
         Entry next;
+        /***
+         * 消息数据
+         */
         Object msg;
+
+        /***
+         * #msg转化为NIO ByteBuffer数组
+         */
         ByteBuffer[] bufs;
+
+        /***
+         * #msg转化为NIO ByteBuffer对象
+         */
         ByteBuffer buf;
+
+        /***
+         * Promise对象
+         */
         ChannelPromise promise;
+        /***
+         * 已写入的字节数
+         */
         long progress;
+        /***
+         * 长度  可读的字节数
+         */
         long total;
+
+        /***
+         * 每个Entry预计可占用的内存大小
+         * 计算方式为 ( {@link #msg} )的字节数 + Entry 对象自身占用内存的大小。
+         */
         int pendingSize;
+        /***
+         * 当 = 1 时，使用 {@link #buf}
+         * 当 > 1 时，使用 {@link #bufs}
+         */
         int count = -1;
+        /***
+         * 是否取消写入对端
+         */
         boolean cancelled;
 
         private Entry(Handle<Entry> handle) {
@@ -818,15 +939,29 @@ public final class ChannelOutboundBuffer {
             return entry;
         }
 
+        /***
+         * 取消
+         * @return
+         */
         int cancel() {
             if (!cancelled) {
+                /***
+                 * 标记为取消
+                 */
                 cancelled = true;
                 int pSize = pendingSize;
-
+                /***
+                 * 释放消息数据的相关资源
+                 */
                 // release message and replace with an empty buffer
                 ReferenceCountUtil.safeRelease(msg);
+                /***
+                 * 设置为空的ByteBuf
+                 */
                 msg = Unpooled.EMPTY_BUFFER;
-
+                /***
+                 * 置空属性
+                 */
                 pendingSize = 0;
                 total = 0;
                 progress = 0;

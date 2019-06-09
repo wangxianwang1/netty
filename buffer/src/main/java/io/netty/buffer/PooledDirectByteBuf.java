@@ -32,30 +32,60 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     private static final Recycler<PooledDirectByteBuf> RECYCLER = new Recycler<PooledDirectByteBuf>() {
         @Override
         protected PooledDirectByteBuf newObject(Handle<PooledDirectByteBuf> handle) {
+            /***
+             * 真正创建PooledDirectByteBuf
+             */
             return new PooledDirectByteBuf(handle, 0);
         }
     };
 
     static PooledDirectByteBuf newInstance(int maxCapacity) {
+        /***
+         * 从Recycler的对象池中获取PooledDirectByteBuf对象
+         */
         PooledDirectByteBuf buf = RECYCLER.get();
+        /***
+         * 重置PooledDirectByteBuf的属性
+         */
         buf.reuse(maxCapacity);
         return buf;
     }
 
+    /***
+     * 构造方法
+     * @param recyclerHandle
+     * @param maxCapacity
+     */
     private PooledDirectByteBuf(Recycler.Handle<PooledDirectByteBuf> recyclerHandle, int maxCapacity) {
         super(recyclerHandle, maxCapacity);
     }
 
+    /***
+     * 获取临时的ByteBuf对象
+     * 复制老的ByteBuffer对象
+     * 共享里面的数据
+     * @param memory
+     * @return
+     */
     @Override
     protected ByteBuffer newInternalNioBuffer(ByteBuffer memory) {
         return memory.duplicate();
     }
 
+    /***
+     * 是否直接内存
+     * @return
+     */
     @Override
     public boolean isDirect() {
         return true;
     }
 
+    /***
+     * 读数据
+     * @param index
+     * @return
+     */
     @Override
     protected byte _getByte(int index) {
         return memory.get(idx(index));

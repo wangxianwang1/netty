@@ -784,6 +784,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
         boolean inEventLoop = inEventLoop();
         addTask(task);
+        /***
+         * 不在io线程才需要开启线程 如果都在了
+         * 还开启个屁啊是吧
+         * 但是如果每次都不在io线程的话都开启的话这个
+         * io线程不是需要开启多次啊是吧，所以在startThread
+         * 中还是需要判断线程的状态是否已经开启过
+         */
         if (!inEventLoop) {
             startThread();
             if (isShutdown()) {
@@ -919,6 +926,17 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return false;
     }
 
+    /***
+     * 干了以下几个事情
+     * 此时这个executor是ThreadPerTaskExecutor类型
+     * 1 创建一个线程 这个线程的run方法就是new出来的Runnable函数
+     * 2 开启创建的出来的Thread及执行run方法（ executor.execute这个方法中去start线程），
+     * 这个run方法其实就是new Runnable的函数
+     * 3 把new出来的线程赋值给NioEventLoop的线程变量
+     * 4 更新线程的最后执行时间
+     * 5 开始NioEventLoop中的run方法（1 selectio事件 2  处理io事件 3 处理task任务）
+     * 完美解决
+     */
     private void doStartThread() {
         assert thread == null;
         executor.execute(new Runnable() {

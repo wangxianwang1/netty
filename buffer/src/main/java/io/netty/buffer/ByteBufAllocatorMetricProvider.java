@@ -15,6 +15,11 @@
  */
 package io.netty.buffer;
 
+
+/***
+ *工厂类
+ *用于生成ByteBufAllocatorMetric
+ */
 public interface ByteBufAllocatorMetricProvider {
 
     /**

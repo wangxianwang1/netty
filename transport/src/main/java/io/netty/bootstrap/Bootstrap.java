@@ -171,7 +171,10 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
     }
 
     /**
-     * @see #connect()
+     * 1 创建channel
+     * 2 初始化channle
+     * 3 channel和NioEventLoop进行绑定及注册
+     * 4 发起连接
      */
     private ChannelFuture doResolveAndConnect(final SocketAddress remoteAddress, final SocketAddress localAddress) {
         final ChannelFuture regFuture = initAndRegister();

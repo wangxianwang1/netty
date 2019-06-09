@@ -27,8 +27,17 @@ import io.netty.util.internal.StringUtil;
  * Skeletal {@link ByteBufAllocator} implementation to extend.
  */
 public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
+    /***
+     * ByteBuf的初始大小值
+     */
     static final int DEFAULT_INITIAL_CAPACITY = 256;
+    /***
+     * ByteBuf的最大容量值
+     */
     static final int DEFAULT_MAX_CAPACITY = Integer.MAX_VALUE;
+    /***
+     * Composite ByteBuf 可包含的ByteBuf的最大数量
+     */
     static final int DEFAULT_MAX_COMPONENTS = 16;
     static final int CALCULATE_THRESHOLD = 1048576 * 4; // 4 MiB page
 
@@ -80,7 +89,14 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return buf;
     }
 
+    /***
+     * 是否倾向创建Direct ByteBuf
+     */
     private final boolean directByDefault;
+
+    /***
+     * 空ByteBuf 缓存
+     */
     private final ByteBuf emptyBuf;
 
     /**
@@ -101,6 +117,10 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         emptyBuf = new EmptyByteBuf(this);
     }
 
+    /***
+     * 根据directByDefault创建是directBuffer还是heapBuffer
+     * @return
+     */
     @Override
     public ByteBuf buffer() {
         if (directByDefault) {
@@ -109,6 +129,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer();
     }
 
+    /***
+     *  根据directByDefault创建是directBuffer还是heapBuffer
+     * @param initialCapacity
+     * @return
+     */
     @Override
     public ByteBuf buffer(int initialCapacity) {
         if (directByDefault) {
@@ -117,6 +142,12 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(initialCapacity);
     }
 
+    /***
+     *  根据directByDefault创建是directBuffer还是heapBuffer
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     public ByteBuf buffer(int initialCapacity, int maxCapacity) {
         if (directByDefault) {
@@ -125,6 +156,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(initialCapacity, maxCapacity);
     }
 
+    /***
+     * 根据是否支持Unsafe操作的情况
+     * 调用directBuffer还是heapBuffer
+     * @return
+     */
     @Override
     public ByteBuf ioBuffer() {
         if (PlatformDependent.hasUnsafe()) {
@@ -133,6 +169,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(DEFAULT_INITIAL_CAPACITY);
     }
 
+    /***
+     * 根据是否支持Unsafe操作的情况
+     * 调用directBuffer还是heapBuffer
+     * @return
+     */
     @Override
     public ByteBuf ioBuffer(int initialCapacity) {
         if (PlatformDependent.hasUnsafe()) {
@@ -141,6 +182,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(initialCapacity);
     }
 
+    /***
+     * 根据是否支持Unsafe操作的情况
+     * 调用directBuffer还是heapBuffer
+     * @return
+     */
     @Override
     public ByteBuf ioBuffer(int initialCapacity, int maxCapacity) {
         if (PlatformDependent.hasUnsafe()) {
@@ -149,16 +195,28 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(initialCapacity, maxCapacity);
     }
 
+    /***
+     * 创建一个heapBuffer对象
+     * @return
+     */
     @Override
     public ByteBuf heapBuffer() {
         return heapBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
+    /***
+     * 创建一个heapBuffer对象
+     * @return
+     */
     @Override
     public ByteBuf heapBuffer(int initialCapacity) {
         return heapBuffer(initialCapacity, DEFAULT_MAX_CAPACITY);
     }
 
+    /***
+     * 创建一个heapBuffer对象
+     * @return
+     */
     @Override
     public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
         if (initialCapacity == 0 && maxCapacity == 0) {
@@ -168,16 +226,31 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return newHeapBuffer(initialCapacity, maxCapacity);
     }
 
+    /***
+     * 创建一个directBuffer对象
+     * @return
+     */
     @Override
     public ByteBuf directBuffer() {
         return directBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
+    /***
+     * 创建一个directBuffer对象
+     * @param initialCapacity
+     * @return
+     */
     @Override
     public ByteBuf directBuffer(int initialCapacity) {
         return directBuffer(initialCapacity, DEFAULT_MAX_CAPACITY);
     }
 
+    /***
+     * 创建一个directBuffer对象
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {
         if (initialCapacity == 0 && maxCapacity == 0) {
@@ -187,6 +260,12 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return newDirectBuffer(initialCapacity, maxCapacity);
     }
 
+    /***
+     * 根据directByDefault创建是
+     * compositeDirectBuffer还是
+     * compositeHeapBuffer
+     * @return
+     */
     @Override
     public CompositeByteBuf compositeBuffer() {
         if (directByDefault) {
@@ -195,6 +274,13 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return compositeHeapBuffer();
     }
 
+    /***
+     * 根据directByDefault创建是
+     * compositeDirectBuffer还是
+     * compositeHeapBuffer 只是
+     * 最大的buffer的个数不用默认值用传进来的值
+     * @return
+     */
     @Override
     public CompositeByteBuf compositeBuffer(int maxNumComponents) {
         if (directByDefault) {
@@ -203,11 +289,20 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return compositeHeapBuffer(maxNumComponents);
     }
 
+    /***
+     *
+     * @return
+     */
     @Override
     public CompositeByteBuf compositeHeapBuffer() {
         return compositeHeapBuffer(DEFAULT_MAX_COMPONENTS);
     }
 
+    /***
+     * 创建一个修饰成LeakAware的ByteBuf
+     * @param maxNumComponents
+     * @return
+     */
     @Override
     public CompositeByteBuf compositeHeapBuffer(int maxNumComponents) {
         return toLeakAwareBuffer(new CompositeByteBuf(this, false, maxNumComponents));
@@ -218,6 +313,11 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return compositeDirectBuffer(DEFAULT_MAX_COMPONENTS);
     }
 
+    /***
+     * 创建一个修饰成LeakAware的ByteBuf
+     * @param maxNumComponents
+     * @return
+     */
     @Override
     public CompositeByteBuf compositeDirectBuffer(int maxNumComponents) {
         return toLeakAwareBuffer(new CompositeByteBuf(this, true, maxNumComponents));

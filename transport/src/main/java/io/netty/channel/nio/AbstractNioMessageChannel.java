@@ -60,6 +60,10 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         private final List<Object> readBuf = new ArrayList<Object>();
 
         /***
+         *   服务端接受客户端读取把接受的客户端请求
+         *   封装成一个NioSocketChannel对象的过程其实也是一次读取的过程
+         *
+         *
          *   对应到netty里面，流水线的开始就是HeadContxt，流水线的结束就是TailConext，
          *   HeadContxt中调用Unsafe做具体的操作，TailConext中用于向用户抛出pipeline中未处理异常以及对未处理消息的警告
          * 1 创建服务端接受到新的连接之后创建一个新的channel 这个channel的父亲是服务端创建的channel
@@ -79,6 +83,10 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        /***
+                         * 读取连接服务端的请求
+                         * 最终会转化为一个NioSockerChannel对象
+                         */
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;

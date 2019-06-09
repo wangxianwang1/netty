@@ -139,11 +139,16 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     @Override
     void init(Channel channel) throws Exception {
+        /***
+         * 1 拿到options属性并设置到当前的channel上 初始化channel
+         */
         final Map<ChannelOption<?>, Object> options = options0();
         synchronized (options) {
             setChannelOptions(channel, options, logger);
         }
-
+        /***
+         * 拿到attrs属性并甚设置到当前的channel上  初始化channel
+         */
         final Map<AttributeKey<?>, Object> attrs = attrs0();
         synchronized (attrs) {
             for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
@@ -155,6 +160,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
         ChannelPipeline p = channel.pipeline();
 
+        /***
+         * 设置childGroup childHandler
+         * 和上面的区别是设置这个是到时候设置到新连接进来的channel中
+         */
         final EventLoopGroup currentChildGroup = childGroup;
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
@@ -166,6 +175,19 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
+        //加入新连接处理器
+        /***
+         * 两个问题需要解决
+         * 1 什么时候执行initChannel方法
+         * 2 执行initChannel方法时候添加了ServerBootstrapAcceptor
+         *   但是同时删除了ChannelInitializer是怎么执行的
+         *   解答
+         *   由于此时这个Channel还没有被register到EventLoop，于是在addLast方法的调用链中，会给pipeline添加一个PendingHandlerAddedTask，其目的是在Channel被register到EventLoop的时候，触发一个回调事件
+         *
+         *   然后在AbstractBootstrap.initAndRegister()方法中，这个Channel会被register到boss EventLoopGoup，接着会被register到boss EventLoopGoup中的某一个具体的EventLoop
+         *
+         *    在AbstractChannel.register0()方法中，之前注册的PendingHandlerAddedTask会被调用，经过一系列调用之后，ChannelInitializer.handleAdded()方法会被触发：
+         */
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {

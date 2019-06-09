@@ -27,11 +27,23 @@ import static io.netty.util.internal.ObjectUtil.checkPositive;
  * Abstract base class for {@link ByteBuf} implementations that count references.
  */
 public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
+
+    /***
+     * 标示refCnt字段在AbstractReferenceCountedByteBuf的内存地址
+     * 在UnpooledDirectByteBuf和PooledDirectByteBuf两个子类中都会使用到这个偏移量。
+     */
     private static final long REFCNT_FIELD_OFFSET;
+
+    /***
+     * refCnt的更新器
+     */
     private static final AtomicIntegerFieldUpdater<AbstractReferenceCountedByteBuf> refCntUpdater =
             AtomicIntegerFieldUpdater.newUpdater(AbstractReferenceCountedByteBuf.class, "refCnt");
 
     // even => "real" refcount is (refCnt >>> 1); odd => "real" refcount is 0
+    /***
+     * 引用计数器
+     */
     @SuppressWarnings("unused")
     private volatile int refCnt = 2;
 
@@ -48,6 +60,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
 
         REFCNT_FIELD_OFFSET = refCntFieldOffset;
     }
+
 
     private static int realRefCnt(int rawCnt) {
         return (rawCnt & 1) != 0 ? 0 : rawCnt >>> 1;
@@ -70,11 +83,18 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         return realRefCnt(nonVolatileRawCnt());
     }
 
+    /***
+     * 获取计数器的值
+     * @return
+     */
     @Override
     public int refCnt() {
         return realRefCnt(refCntUpdater.get(this));
     }
 
+    /***
+     * 加newRefCnt
+     */
     /**
      * An unsafe operation intended for use by a subclass that sets the reference count of the buffer directly
      */
@@ -82,16 +102,30 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         refCntUpdater.set(this, newRefCnt << 1); // overflow OK here
     }
 
+    /***
+     * 加1
+     * @return
+     */
     @Override
     public ByteBuf retain() {
         return retain0(1);
     }
 
+    /***
+     * 加increment
+     * @param increment
+     * @return
+     */
     @Override
     public ByteBuf retain(int increment) {
         return retain0(checkPositive(increment, "increment"));
     }
 
+    /***
+     * 叫increment
+     * @param increment
+     * @return
+     */
     private ByteBuf retain0(final int increment) {
         // all changes to the raw count are 2x the "real" change
         int adjustedIncrement = increment << 1; // overflow OK here
